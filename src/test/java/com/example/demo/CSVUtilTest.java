@@ -41,7 +41,6 @@ public class CSVUtilTest {
         assert listFilter.size() == 322;
     }
 
-
     @Test
     void reactive_filtrarJugadoresMayoresA35(){
         List<Player> list = CsvUtilFile.getPlayers();
@@ -61,6 +60,45 @@ public class CSVUtilTest {
                 .collectMultimap(Player::getClub);
 
         assert listFilter.block().size() == 322;
+    }
+
+    @Test
+    void reactive_filtrarJugadoresMayoresA34ClubEspecifico() {
+        List<Player> list = CsvUtilFile.getPlayers();
+        Flux<Player> listFlux = Flux.fromStream(list.parallelStream()).cache();
+        Mono<Map<String, Collection<Player>>> listFilter = listFlux
+                .filter(player -> player.club.equals("Milan") && player.age >= 34)
+                .distinct()
+                .collectMultimap(Player -> Player.getClub());
+
+        listFilter.block().forEach((equipo, players) -> {
+            players.forEach(player -> {
+                System.out.println("Jugador: "+player.name+"\nEdad Jugador: " + player.age + " años");
+                assert player.club.equals("Milan");
+            });
+        });
+        assert listFilter.block().size() == 1;
+    }
+
+    @Test
+    void reactive_filtrarRankingVictoriasPorNacionalidad() {
+        List<Player> list = CsvUtilFile.getPlayers();
+        Flux<Player> listFlux = Flux.fromStream(list.parallelStream()).cache();
+        Mono<Map<String, Collection<Player>>> listFilter = listFlux
+                .buffer(100)
+                .flatMap(player1 -> listFlux
+                        .filter(player2 -> player1.stream()
+                                .anyMatch(a -> a.national.equals(player2.national)))
+                ).distinct()
+                .sort((k, player) -> player.winners)
+                .collectMultimap(Player-> Player.getNational());
+
+        listFilter.block().forEach((pais, jugador) -> {
+            System.out.println("------------Pais: "+pais+"------------");
+            jugador.forEach(player -> {
+                System.out.println("Nombre Jugador: "+player.name+" \nvictorias: "+player.winners);
+            });
+        });
     }
 
 
